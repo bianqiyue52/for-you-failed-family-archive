@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>For You / Failed Family Archive</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="archive-access-gate" aria-live="polite">
+      <section class="access-gate-panel" aria-label="Archive access classification gate">
+        <div class="access-gate-case">
+          <strong>FAILED FAMILY ARCHIVE</strong>
+          <p>Case ID: 2012-09-01</p>
+          <p>RELATION FIELD REQUIRED</p>
+        </div>
+        <div class="access-gate-options" aria-label="Relation field options">
+          <button type="button" data-gate-choice="child">CHILD</button>
+          <button type="button" data-gate-choice="parent">PARENT</button>
+          <button type="button" data-gate-choice="grandparent">GRANDPARENT</button>
+          <button type="button" data-gate-choice="unresolved">UNRESOLVED</button>
+        </div>
+        <div class="access-gate-output" data-gate-output hidden></div>
+      </section>
+    </div>
+    <div id="fragment-layer" aria-live="polite"></div>
+    <div id="current-record-layer" aria-live="polite"></div>
+    <div id="archive-status-layer" aria-live="polite"></div>
+    <div id="archive-log-layer" aria-live="polite"></div>
+    <div id="archive-report-layer" aria-live="polite"></div>
+    <div id="system-layer">
+      <div class="classification" data-perspective="child">
+        <span>child</span>
+        <strong>孩子</strong>
+      </div>
+      <div class="classification" data-perspective="parent">
+        <span>parent</span>
+        <strong>父母</strong>
+      </div>
+      <div class="classification" data-perspective="grandparent">
+        <span>grandparent</span>
+        <strong>祖辈</strong>
+      </div>
+    </div>
+    <div id="watering-meter" hidden>
+      <div class="meter-label">hold / 接水</div>
+      <div class="meter-track"><div class="meter-fill"></div></div>
+    </div>
+    <div id="blackout"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.164.1/build/three.module.js"
+        }
+      }
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
