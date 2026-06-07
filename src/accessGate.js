@@ -155,9 +155,9 @@ export function createAccessGate({ gateLayer, state, status, audio }) {
           <span></span>
         </div>
         <svg class="gate-consequence gate-split-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M 35 20 L 37 40 L 34 62 L 38 84"></path>
-          <path d="M 48 18 L 51 39 L 49 63 L 53 86"></path>
-          <path d="M 62 22 L 60 43 L 64 66 L 61 83"></path>
+          <path d="M 29 36 L 41 38 M 31 42 L 45 42 M 53 37 L 65 36 M 55 43 L 70 45 M 38 58 L 50 56 M 59 62 L 73 60"></path>
+          <path d="M 35 25 C 36 31 35 35 37 40 M 42 66 C 40 72 43 77 41 83 M 66 28 C 64 35 67 41 65 47"></path>
+          <path d="M 28 51 L 34 49 L 37 52 M 46 50 L 51 53 L 57 51 M 63 54 L 71 56 M 48 72 L 55 70"></path>
         </svg>
         <div class="gate-field-labels" aria-hidden="true">
           <span>FIELD 01 / CHILD</span>
@@ -247,6 +247,7 @@ export function createAccessGate({ gateLayer, state, status, audio }) {
   function onLoopPointerDown(event) {
     if (drag.releasing || closureState >= 3) return;
     event.stopPropagation?.();
+    audio?.startGateNoise?.();
 
     const rect = machine.getBoundingClientRect();
     const loopPoint = getCurrentLoopPoint(rect);
@@ -423,6 +424,7 @@ export function createAccessGate({ gateLayer, state, status, audio }) {
       gateLayer.dataset.gatePhase = "frame-open";
       machine.dataset.gatePhase = "frame-open";
       document.documentElement.dataset.accessGate = "open";
+      audio?.stopGateNoise?.();
       drag.releasing = false;
     }, 3500);
   }
@@ -672,18 +674,12 @@ export function createAccessGate({ gateLayer, state, status, audio }) {
 
   function playReleaseSound(anchorKey) {
     if (!audio) return;
-    audio.ensureAudio?.();
-    if (anchorKey === "c") {
-      audio.playRandomSegment?.("tent", { minDuration: 0.7, maxDuration: 1.1, volume: 0.055, maxInstances: 1, allowOverlap: false });
-    } else {
-      audio.playArchiveReject?.();
-    }
+    audio.startGateNoise?.();
   }
 
   function playFinalSound() {
     if (!audio) return;
-    audio.ensureAudio?.();
-    audio.playArchiveReject?.({ force: true });
+    audio.startGateNoise?.();
   }
 
   function normalizedDot(vector, direction) {

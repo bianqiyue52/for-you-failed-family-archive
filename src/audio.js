@@ -24,6 +24,7 @@ const RANDOM_SEGMENT_CONFIG = {
 export function createAudioSystem(state) {
   const activeLoops = new Map();
   const activeSegments = new Map();
+  let gateNoise = null;
   let roomTone = null;
   let lastArchiveRejectAt = 0;
 
@@ -105,15 +106,32 @@ export function createAudioSystem(state) {
     const startPlayback = () => {
       const availableDuration = Number.isFinite(audio.duration) ? audio.duration : duration;
       const maxStart = Math.max(0, availableDuration - duration - 0.1);
-      audio.currentTime = maxStart > 0 ? randomBetween(0, maxStart) : 0;
-      audio.play().catch(() => {
-        unregisterSegment(instance);
-        playFallbackSound(fallbackKey);
-      });
-      fadeToVolume(instance, volume, fadeIn * 1000);
-      instance.cleanupTimer = window.setTimeout(() => {
-        fadeOutSegment(instance, fadeOut * 1000);
-      }, Math.max(0, (duration - fadeOut) * 1000));
+      const startTime = pickSegmentStart(key, maxStart);
+      const begin = () => {
+        audio.play().catch(() => {
+          unregisterSegment(instance);
+          playFallbackSound(fallbackKey);
+        });
+        fadeToVolume(instance, volume, fadeIn * 1000);
+        instance.cleanupTimer = window.setTimeout(() => {
+          fadeOutSegment(instance, fadeOut * 1000);
+        }, Math.max(0, (duration - fadeOut) * 1000));
+      };
+
+      if (startTime > 0) {
+        let seekingFallback = 0;
+        const beginOnce = () => {
+          window.clearTimeout(seekingFallback);
+          audio.removeEventListener("seeked", beginOnce);
+          begin();
+        };
+        audio.addEventListener("seeked", beginOnce, { once: true });
+        audio.currentTime = startTime;
+        seekingFallback = window.setTimeout(beginOnce, 180);
+        return;
+      }
+
+      begin();
     };
 
     if (audio.readyState >= 1) {
@@ -164,6 +182,58 @@ export function createAudioSystem(state) {
     roomTone.play().catch(() => {
       roomTone = null;
     });
+  }
+
+  function startGateNoise() {
+    ensureAudio();
+    startRoomTone();
+    if (gateNoise) return;
+
+    const duration = 1.6;
+    const sampleRate = state.audioContext.sampleRate;
+    const buffer = state.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i += 1) {
+      const crackle = Math.random() > 0.986 ? randomBetween(-0.9, 0.9) : 0;
+      samples[i] = randomBetween(-0.34, 0.34) + crackle;
+    }
+
+    const source = state.audioContext.createBufferSource();
+    const filter = state.audioContext.createBiquadFilter();
+    const gain = state.audioContext.createGain();
+    source.buffer = buffer;
+    source.loop = true;
+    filter.type = "bandpass";
+    filter.frequency.value = 1550;
+    filter.Q.value = 0.72;
+    gain.gain.setValueAtTime(0.0001, state.audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.035, state.audioContext.currentTime + 0.32);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(state.audioContext.destination);
+    source.start();
+    gateNoise = { source, filter, gain };
+  }
+
+  function stopGateNoise({ fadeMs = 650 } = {}) {
+    if (!gateNoise) return;
+
+    const { source, filter, gain } = gateNoise;
+    gateNoise = null;
+    const now = state.audioContext.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + fadeMs / 1000);
+    window.setTimeout(() => {
+      try {
+        source.stop();
+      } catch {
+        // The source may already have ended if the browser cleaned it up.
+      }
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    }, fadeMs + 80);
   }
 
   function startLoop(key, { id = key, volume = SOUND_VOLUME[key] ?? 0.12, fallbackKey = key } = {}) {
@@ -313,9 +383,28 @@ export function createAudioSystem(state) {
     playMemorySound,
     playPhoneSequence,
     playRandomSegment,
+    startGateNoise,
+    startRoomTone,
+    stopGateNoise,
     playTone,
     stopLoop
   };
+}
+
+function pickSegmentStart(key, maxStart) {
+  if (maxStart <= 0) return 0;
+
+  const previous = pickSegmentStart.lastStarts?.get(key);
+  let next = randomBetween(0, maxStart);
+  if (Number.isFinite(previous) && maxStart > 2) {
+    for (let attempt = 0; attempt < 5 && Math.abs(next - previous) < Math.min(2, maxStart * 0.35); attempt += 1) {
+      next = randomBetween(0, maxStart);
+    }
+  }
+
+  pickSegmentStart.lastStarts ??= new Map();
+  pickSegmentStart.lastStarts.set(key, next);
+  return next;
 }
 
 function randomBetween(min, max) {

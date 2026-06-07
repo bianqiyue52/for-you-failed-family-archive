@@ -10,11 +10,12 @@ export function createFragmentSystem({ fragmentLayer, classificationEls, state }
     activateClassification(fragment.perspective);
 
     const el = document.createElement("div");
-    const stain = state.interactionCount > 3 && Math.random() > 0.42;
+    const stain = key !== "gardenia" && state.interactionCount > 3 && Math.random() > 0.42;
     el.className = ["fragment", stain ? "stain" : "", interrupt ? "interrupt" : ""].filter(Boolean).join(" ");
+    el.dataset.fragmentKey = key;
     el.textContent = fragment.text;
-    el.style.left = `${clamp(x + random(-120, 80), 12, window.innerWidth - 120)}px`;
-    el.style.top = `${clamp(y + random(-80, 95), 18, window.innerHeight - 70)}px`;
+    el.style.left = `${clamp(x + random(-120, 80), 24, window.innerWidth - 220)}px`;
+    el.style.top = `${clamp(y + random(-80, 95), 92, window.innerHeight - 96)}px`;
     el.style.setProperty("--tilt", `${random(-7, 5)}deg`);
     el.style.setProperty("--drift-x", `${random(-14, 12)}px`);
     el.style.setProperty("--drift-y", `${random(-10, 14)}px`);

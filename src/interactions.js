@@ -17,6 +17,7 @@ export function createInteractionSystem({
 }) {
   const pointer = new THREE.Vector2();
   const raycaster = new THREE.Raycaster();
+  const worldPoint = new THREE.Vector3();
   let activeWateringPointerId = null;
   let hasActivePointerCapture = false;
 
@@ -85,9 +86,8 @@ export function createInteractionSystem({
 
     if (key === "phone") {
       const point = { x: event.clientX, y: event.clientY };
-      audio.playPhoneSequence(() => {
-        applyObjectInteraction(mesh, key, point);
-      });
+      applyObjectInteraction(mesh, key, point);
+      audio.playPhoneSequence();
       return;
     }
 
@@ -233,7 +233,53 @@ export function createInteractionSystem({
   function getHit() {
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(objects, false);
-    return hits[0] ?? null;
+    return hits[0] ?? getForgivingHit();
+  }
+
+  function getForgivingHit() {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = ((pointer.x + 1) / 2) * rect.width + rect.left;
+    const y = ((1 - pointer.y) / 2) * rect.height + rect.top;
+    const padding = Math.max(18, Math.min(rect.width, rect.height) * 0.018);
+
+    const candidates = objects
+      .map((object) => {
+        const box = getScreenBounds(object);
+        return { object, box };
+      })
+      .filter(({ box }) => (
+        x >= box.left - padding &&
+        x <= box.right + padding &&
+        y >= box.top - padding &&
+        y <= box.bottom + padding
+      ));
+
+    candidates.sort((a, b) => b.object.position.z - a.object.position.z);
+    return candidates[0] ? { object: candidates[0].object } : null;
+  }
+
+  function getScreenBounds(object) {
+    object.updateMatrixWorld();
+    const [width, height] = object.userData.size;
+    const corners = [
+      [-width / 2, -height / 2, 0],
+      [width / 2, -height / 2, 0],
+      [width / 2, height / 2, 0],
+      [-width / 2, height / 2, 0]
+    ].map(([x, y, z]) => {
+      worldPoint.set(x, y, z).applyMatrix4(object.matrixWorld).project(camera);
+      return {
+        x: (worldPoint.x + 1) * 0.5 * window.innerWidth,
+        y: (1 - worldPoint.y) * 0.5 * window.innerHeight
+      };
+    });
+
+    return {
+      left: Math.min(...corners.map((corner) => corner.x)),
+      right: Math.max(...corners.map((corner) => corner.x)),
+      top: Math.min(...corners.map((corner) => corner.y)),
+      bottom: Math.max(...corners.map((corner) => corner.y))
+    };
   }
 
   function setHovered(mesh, event) {
